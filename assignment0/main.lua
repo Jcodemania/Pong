@@ -1,19 +1,16 @@
 --[[
-    GD50 2018
-    Pong Remake
-
+    -- AI feature --
+    Author: Eunsub Lee
+    petlee@ucdavis.edu
     -- Main Program --
-
     Author: Colton Ogden
     cogden@cs50.harvard.edu
-
     Originally programmed by Atari in 1972. Features two
     paddles, controlled by players, with the goal of getting
     the ball past your opponent's edge. First to 10 points wins.
-
     This version is built to more closely resemble the NES than
     the original Pong machines or the Atari 2600 in terms of
-    resolution, though in widescreen (16:9) so it looks nicer on 
+    resolution, though in widescreen (16:9) so it looks nicer on
     modern systems.
 ]]
 
@@ -50,6 +47,9 @@ VIRTUAL_HEIGHT = 243
 -- paddle movement speed
 PADDLE_SPEED = 200
 
+-- ball's speed increses after each hit
+MOMENTUM = 1.05
+
 --[[
     Called just once at the beginning of the game; used to set up
     game objects, variables, etc. and prepare the game world.
@@ -79,13 +79,14 @@ function love.load()
         ['score'] = love.audio.newSource('sounds/score.wav', 'static'),
         ['wall_hit'] = love.audio.newSource('sounds/wall_hit.wav', 'static')
     }
-    
+
     -- initialize our virtual resolution, which will be rendered within our
     -- actual window no matter its dimensions
     push:setupScreen(VIRTUAL_WIDTH, VIRTUAL_HEIGHT, WINDOW_WIDTH, WINDOW_HEIGHT, {
         fullscreen = false,
         resizable = true,
-        vsync = true
+        vsync = true,
+        canvas = false
     })
 
     -- initialize our player paddles; make them global so that they can be
@@ -149,7 +150,7 @@ function love.update(dt)
         -- slightly increasing it, then altering the dy based on the position
         -- at which it collided, then playing a sound effect
         if ball:collides(player1) then
-            ball.dx = -ball.dx * 1.03
+            ball.dx = -ball.dx * MOMENTUM
             ball.x = player1.x + 5
 
             -- keep velocity going in the same direction, but randomize it
@@ -162,7 +163,7 @@ function love.update(dt)
             sounds['paddle_hit']:play()
         end
         if ball:collides(player2) then
-            ball.dx = -ball.dx * 1.03
+            ball.dx = -ball.dx * MOMENTUM
             ball.x = player2.x - 4
 
             -- keep velocity going in the same direction, but randomize it
@@ -190,7 +191,7 @@ function love.update(dt)
             sounds['wall_hit']:play()
         end
 
-        -- if we reach the left edge of the screen, go back to serve
+        -- if we reach the left or right edge of the screen, go back to serve
         -- and update the score and serving player
         if ball.x < 0 then
             servingPlayer = 1
@@ -209,21 +210,16 @@ function love.update(dt)
             end
         end
 
-        -- if we reach the right edge of the screen, go back to serve
-        -- and update the score and serving player
         if ball.x > VIRTUAL_WIDTH then
             servingPlayer = 2
             player1Score = player1Score + 1
             sounds['score']:play()
 
-            -- if we've reached a score of 10, the game is over; set the
-            -- state to done so we can show the victory message
             if player1Score == 10 then
                 winningPlayer = 1
                 gameState = 'done'
             else
                 gameState = 'serve'
-                -- places the ball in the middle of the screen, no velocity
                 ball:reset()
             end
         end
@@ -232,10 +228,10 @@ function love.update(dt)
     --
     -- paddles can move no matter what state we're in
     --
-    -- player 1
-    if love.keyboard.isDown('w') then
+    -- player 1 is AI
+    if player1:moveDown(ball) then
         player1.dy = -PADDLE_SPEED
-    elseif love.keyboard.isDown('s') then
+    elseif player1:moveUp(ball) then
         player1.dy = PADDLE_SPEED
     else
         player1.dy = 0
@@ -305,10 +301,10 @@ end
 ]]
 function love.draw()
     -- begin drawing with push, in our virtual resolution
-    push:apply('start')
+    push:start()
 
     love.graphics.clear(40, 45, 52, 255)
-    
+
     -- render different things depending on which part of the game we're in
     if gameState == 'start' then
         -- UI messages
@@ -318,7 +314,7 @@ function love.draw()
     elseif gameState == 'serve' then
         -- UI messages
         love.graphics.setFont(smallFont)
-        love.graphics.printf('Player ' .. tostring(servingPlayer) .. "'s serve!", 
+        love.graphics.printf('Player ' .. tostring(servingPlayer) .. "'s serve!",
             0, 10, VIRTUAL_WIDTH, 'center')
         love.graphics.printf('Press Enter to serve!', 0, 20, VIRTUAL_WIDTH, 'center')
     elseif gameState == 'play' then
@@ -334,7 +330,7 @@ function love.draw()
 
     -- show the score before ball is rendered so it can move over the text
     displayScore()
-    
+
     player1:render()
     player2:render()
     ball:render()
@@ -343,7 +339,7 @@ function love.draw()
     displayFPS()
 
     -- end our drawing to push
-    push:apply('end')
+    push:finish()
 end
 
 --[[
@@ -366,4 +362,5 @@ function displayFPS()
     love.graphics.setFont(smallFont)
     love.graphics.setColor(0, 255, 0, 255)
     love.graphics.print('FPS: ' .. tostring(love.timer.getFPS()), 10, 10)
+    love.graphics.setColor(255, 255, 255, 255)
 end
